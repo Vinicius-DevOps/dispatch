@@ -1,0 +1,125 @@
+name: Test Workflow Dispatch
+
+# Este workflow testa o comportamento do workflow_dispatch em diferentes branches
+on:
+  workflow_dispatch:
+    inputs:
+      test_scenario:
+        description: "Cenário de teste que você está executando"
+        required: false
+        default: "teste-basico"
+        type: choice
+        options:
+          - teste-basico
+          - teste-main-branch
+          - teste-develop-branch
+          - teste-feature-branch
+      custom_message:
+        description: "Mensagem personalizada para identificar o teste"
+        required: false
+        default: "Teste de workflow_dispatch"
+        type: string
+
+  # Também vamos adicionar push para ver a diferença
+  push:
+    branches: [main, develop]
+    paths:
+      - ".github/workflows/**"
+
+jobs:
+  test-dispatch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Mostrar informações do contexto
+        run: |
+          echo "🚀 INFORMAÇÕES DO WORKFLOW DISPATCH 🚀"
+          echo "============================================"
+          echo "📅 Data/Hora: $(date)"
+          echo "🌿 Branch atual: ${{ github.ref_name }}"
+          echo "🔀 Branch de origem: ${{ github.head_ref || github.ref_name }}"
+          echo "⚡ Evento que acionou: ${{ github.event_name }}"
+          echo "👤 Usuário que acionou: ${{ github.actor }}"
+          echo "🏢 Repositório: ${{ github.repository }}"
+          echo "🆔 Run ID: ${{ github.run_id }}"
+          echo "🔢 Run Number: ${{ github.run_number }}"
+          echo "============================================"
+
+      - name: Mostrar inputs do workflow_dispatch
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "📝 INPUTS DO WORKFLOW_DISPATCH 📝"
+          echo "=================================="
+          echo "Cenário de teste: ${{ github.event.inputs.test_scenario }}"
+          echo "Mensagem personalizada: ${{ github.event.inputs.custom_message }}"
+          echo "=================================="
+
+      - name: Executar script de demonstração
+        run: |
+          chmod +x ./scripts/show-branch-info.sh
+          ./scripts/show-branch-info.sh
+
+      - name: Executar script Python
+        run: |
+          python3 ./scripts/test-script.py
+
+      - name: Mostrar arquivos do workflow
+        run: |
+          echo "📁 ARQUIVOS DE WORKFLOW PRESENTES 📁"
+          echo "===================================="
+          ls -la .github/workflows/
+          echo "===================================="
+          echo "📄 Conteúdo do arquivo atual:"
+          echo "===================================="
+          cat .github/workflows/test-dispatch.yml
+
+      - name: Verificar diferenças por branch
+        run: |
+          echo "🔍 VERIFICAÇÃO ESPECÍFICA DA BRANCH 🔍"
+          echo "======================================"
+          case "${{ github.ref_name }}" in
+            "main")
+              echo "🎯 Executando na branch MAIN (Produção)"
+              echo "Esta é a branch principal do projeto"
+              ;;
+            "develop")
+              echo "🛠️ Executando na branch DEVELOP (Desenvolvimento)"
+              echo "Esta é a branch de desenvolvimento"
+              ;;
+            feat/*)
+              echo "✨ Executando na branch FEATURE (${{ github.ref_name }})"
+              echo "Esta é uma branch de feature temporária"
+              ;;
+            *)
+              echo "❓ Executando em branch não mapeada: ${{ github.ref_name }}"
+              ;;
+          esac
+
+      - name: Salvar resultado do teste
+        run: |
+          echo "💾 SALVANDO RESULTADO DO TESTE 💾"
+          echo "================================="
+          mkdir -p test-results
+          cat > test-results/resultado-$(date +%Y%m%d-%H%M%S).txt << EOF
+          TESTE WORKFLOW_DISPATCH - $(date)
+          ===================================
+          Branch: ${{ github.ref_name }}
+          Evento: ${{ github.event_name }}
+          Actor: ${{ github.actor }}
+          Cenário: ${{ github.event.inputs.test_scenario }}
+          Mensagem: ${{ github.event.inputs.custom_message }}
+          Run ID: ${{ github.run_id }}
+
+          STATUS: ✅ WORKFLOW EXECUTADO COM SUCESSO
+          ===================================
+          EOF
+
+      - name: Upload dos resultados
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.ref_name }}-${{ github.run_number }}
+          path: test-results/
+          retention-days: 30
